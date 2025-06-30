@@ -13,27 +13,29 @@ class RgbOctomapNode : public rclcpp::Node {
 public:
     RgbOctomapNode() : Node("rgb_octomap_node"),
         tf_buffer_(this->get_clock()),
-        tf_listener_(tf_buffer_)
+        tf_listener_(tf_buffer_),
+        frame_count_(0),
+        prune_interval_(5),        // nur alle 5 Frames prunen
+        publish_interval_(5),      // nur alle 5 Frames publizieren
+        decimation_factor_(4)      // nur jeder 4. Punkt
     {
         RCLCPP_INFO(this->get_logger(), "Starte RgbOctomapNode...");
         sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "/camera/depth_registered/points", 10,
             std::bind(&RgbOctomapNode::pointCloudCallback, this, std::placeholders::_1));
 
-        octree_ = std::make_shared<octomap::ColorOcTree>(0.05);  // Auflösung 5cm
+        octree_ = std::make_shared<octomap::ColorOcTree>(0.03);  // Auflösung 5cm
         pub_ = this->create_publisher<octomap_msgs::msg::Octomap>("octomap", 10);
-
-        RCLCPP_INFO(this->get_logger(), "Abonniere Topic: /camera/depth_registered/points");
-        RCLCPP_INFO(this->get_logger(), "Publisher für Topic: octomap erstellt");
     }
 
 private:
     void pointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-        std::string target_frame = "odom"; // oder "odom", je nach Welt-Frame
+        ++frame_count_;
+
         geometry_msgs::msg::TransformStamped transform_stamped;
         try {
             transform_stamped = tf_buffer_.lookupTransform(
-                target_frame, msg->header.frame_id,
+                "camera_color_optical_frame", msg->header.frame_id,
                 tf2::TimePointZero, std::chrono::milliseconds(100));
         } catch (tf2::TransformException &ex) {
             RCLCPP_WARN(this->get_logger(), "TF konnte nicht geholt werden: %s", ex.what());
@@ -45,11 +47,16 @@ private:
         sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
         sensor_msgs::PointCloud2ConstIterator<float> iter_rgb(*msg, "rgb");
 
-        size_t count = 0;
+        // Berechne Sensor‐Ursprung in target_frame
+        octomap::point3d sensor_origin(
+          transform_stamped.transform.translation.x,
+          transform_stamped.transform.translation.y,
+          transform_stamped.transform.translation.z);
+
+        size_t count = 0, idx = 0;
         for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_rgb) {
-            float x = *iter_x;
-            float y = *iter_y;
-            float z = *iter_z;
+            if (++idx % decimation_factor_ != 0) continue;  // DECIMATION
+            float x = *iter_x, y = *iter_y, z = *iter_z;
 
             // NaN & Tiefenbereich filtern
             if (std::isnan(x) || std::isnan(y) || std::isnan(z)) continue;
@@ -69,22 +76,29 @@ private:
             uint8_t g = (rgb_val >> 8) & 0xFF;
             uint8_t b = rgb_val & 0xFF;
 
-            // Octree aktualisieren und färben
-            auto node = octree_->updateNode(octomap::point3d(pt_out.point.x, pt_out.point.y, pt_out.point.z), true);
-            if (node) node->setColor(r, g, b);
+            // 1) Freiraum markieren: alle Zellen entlang des Strahls werden leer
+            octomap::point3d endpoint(pt_out.point.x, pt_out.point.y, pt_out.point.z);
+            octree_->insertRay(sensor_origin, endpoint, -1, true);
+
+            // 2) Endpunkt als belegt und eingefärbt markieren
+            if (auto node = octree_->updateNode(endpoint, true)) 
+                node->setColor(r,g,b);
             ++count;
         }
 
-        RCLCPP_INFO(this->get_logger(), "Verarbeitete gültige Punkte: %zu", count);
+        // PRUNE + LAZY_UPDATE nur alle prune_interval_ Frames
+        if (frame_count_ % prune_interval_ == 0) {
+            octree_->updateInnerOccupancy();
+            octree_->prune();
+        }
 
-        // Octomap-Nachricht publizieren
-        octomap_msgs::msg::Octomap octomap_msg;
-        octomap_msg.header = msg->header;
-        if (octomap_msgs::fullMapToMsg(*octree_, octomap_msg)) {
-            pub_->publish(octomap_msg);
-            RCLCPP_INFO(this->get_logger(), "Octomap veröffentlicht (Frame: %s)", octomap_msg.header.frame_id.c_str());
-        } else {
-            RCLCPP_WARN(this->get_logger(), "Fehler beim Konvertieren der Octomap-Nachricht!");
+        // PUBLISH nur alle publish_interval_ Frames
+        if (frame_count_ % publish_interval_ == 0) {
+            octomap_msgs::msg::Octomap octomap_msg;
+            octomap_msg.header = msg->header;
+            if (octomap_msgs::fullMapToMsg(*octree_, octomap_msg)) {
+                pub_->publish(octomap_msg);
+            }
         }
     }
 
@@ -93,4 +107,5 @@ private:
     rclcpp::Publisher<octomap_msgs::msg::Octomap>::SharedPtr pub_;
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
+    size_t frame_count_, prune_interval_, publish_interval_, decimation_factor_;
 };
