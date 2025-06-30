@@ -45,12 +45,11 @@ Note: `input_octomap_path` can be a file with the extension `.bt` (binary) or `.
 #### Convert RGB OctoMap to PLY
 
 ```
-ros2 run octomap_server rgb_octomap_to_ply_node \
-  --ros-args \
-    -p input_octomap_path:="your_rgb_map.ot" \
-    -p output_ply_path:="output_map.ply" \
-    -p team_name:="MyTeam" \
-    -p mission_number:="1"
+ros2 run octomap_server rgb_octomap_to_ply_node --ros-args \
+  -p input_octomap_path:=input.ot \
+  -p output_ply_path:=output.ply \
+  -p team_name:=Team_Name \
+  -p mission_number:='"1"'
 ```
 
 
