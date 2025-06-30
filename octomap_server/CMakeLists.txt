@@ -142,6 +142,19 @@ ament_target_dependencies(rgb_octomap_server rclcpp sensor_msgs octomap_msgs tf2
 target_link_libraries(rgb_octomap_server ${OCTOMAP_LIBRARIES})
 install(TARGETS rgb_octomap_server DESTINATION lib/${PROJECT_NAME})
 
+ament_auto_add_library(rgb_octomap_saver SHARED
+  src/rgb_octomap_saver.cpp
+)
+
+target_link_libraries(rgb_octomap_saver
+  ${OCTOMAP_LIBRARIES}
+)
+
+rclcpp_components_register_node(rgb_octomap_saver
+  PLUGIN "octomap_server::RgbOctomapSaver"
+  EXECUTABLE rgb_octomap_saver_node
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()

@@ -8,6 +8,7 @@
 #include <tf2_ros/buffer.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include "octomap_msgs/srv/get_octomap.hpp"
 
 class RgbOctomapNode : public rclcpp::Node {
 public:
@@ -42,6 +43,11 @@ public:
 
         // Publisher for the color octomap
         pub_ = this->create_publisher<octomap_msgs::msg::Octomap>("color_octomap", 10);
+
+        // add this:
+        srv_ = this->create_service<octomap_msgs::srv::GetOctomap>(
+          "color_octomap",
+          std::bind(&RgbOctomapNode::onGetColorOctomap, this, std::placeholders::_1, std::placeholders::_2));
     }
 
 private:
@@ -117,9 +123,22 @@ private:
             octomap_msg.header.frame_id = "odom"; // Set the frame to "odom"
             octomap_msg.header.stamp = msg->header.stamp;
             if (octomap_msgs::fullMapToMsg(*octree_, octomap_msg)) {
+                RCLCPP_INFO(this->get_logger(), "Publishing color_octomap...");
                 pub_->publish(octomap_msg);
             }
         }
+    }
+
+    // new callback:
+    void onGetColorOctomap(
+      const std::shared_ptr<octomap_msgs::srv::GetOctomap::Request> /*req*/,
+      std::shared_ptr<octomap_msgs::srv::GetOctomap::Response> res)
+    {
+      res->map.header.frame_id = world_frame_;
+      res->map.header.stamp = now();
+      if (!octomap_msgs::fullMapToMsg(*octree_, res->map)) {
+        RCLCPP_ERROR(get_logger(), "Failed to serialize color octomap");
+      }
     }
 
     // ROS 2 subscription for the point cloud
@@ -138,6 +157,8 @@ private:
     // Frame counters and configuration parameters
     size_t frame_count_, prune_interval_, publish_interval_, decimation_factor_;
     std::string camera_frame_, world_frame_, pointcloud_topic_;
+
+    rclcpp::Service<octomap_msgs::srv::GetOctomap>::SharedPtr srv_;
 };
 
 int main(int argc, char **argv) {
