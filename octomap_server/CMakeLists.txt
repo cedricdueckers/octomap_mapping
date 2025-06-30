@@ -23,6 +23,7 @@ find_package(cv_bridge REQUIRED)
 
 find_package(OpenCV REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 ament_auto_add_library(octomap_server_static SHARED
@@ -135,30 +136,11 @@ rclcpp_components_register_node(octomap_to_ply
 
 rclcpp_components_register_nodes(octomap_to_ply "octomap_server::OctomapToPly")
 
-ament_auto_add_library(RgbOctomapNode SHARED
-  src/RgbOctomapNode.cpp
-)
 
-target_link_libraries(RgbOctomapNode
-  ${OCTOMAP_LIBRARIES}
-  ${PCL_LIBRARIES}
-)
-
-target_include_directories(RgbOctomapNode
-  PUBLIC
-    ${OCTOMAP_INCLUDE_DIRS}
-    ${OpenCV_INCLUDE_DIRS}
-)
-
-rclcpp_components_register_node(RgbOctomapNode
-  PLUGIN "octomap_server::RgbOctomapNode"
-  EXECUTABLE rgb_octomap_node
-)
-
-add_executable(rgb_octomap_node_exec src/rgb_octomap_node_main.cpp)
-target_link_libraries(rgb_octomap_node_exec RgbOctomapNode ${rclcpp_LIBRARIES})
-ament_target_dependencies(rgb_octomap_node_exec rclcpp sensor_msgs octomap_msgs)
-install(TARGETS rgb_octomap_node_exec DESTINATION lib/${PROJECT_NAME})
+add_executable(rgb_octomap_server src/rgb_octomap_server.cpp)
+ament_target_dependencies(rgb_octomap_server rclcpp sensor_msgs octomap_msgs tf2_ros geometry_msgs tf2_geometry_msgs)
+target_link_libraries(rgb_octomap_server ${OCTOMAP_LIBRARIES})
+install(TARGETS rgb_octomap_server DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -174,5 +156,9 @@ ament_auto_package(
 install(PROGRAMS
   scripts/octomap_eraser_cli.py
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 

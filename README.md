@@ -15,3 +15,9 @@ The main branch for ROS2 Foxy and newer is `ros2`.
 ros2 run octomap_server octomap_saver_node --ros-args -p octomap_path:=(path for saving octomap)
 ```
 Note: The extension of octomap path should be `.bt` or `.ot`
+
+#### Run RGB Octomap Server
+
+```
+ros2 launch octomap_server rgb_octomap_server.launch.py
+```
