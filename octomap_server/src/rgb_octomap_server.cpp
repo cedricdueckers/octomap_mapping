@@ -123,7 +123,6 @@ private:
             octomap_msg.header.frame_id = "odom"; // Set the frame to "odom"
             octomap_msg.header.stamp = msg->header.stamp;
             if (octomap_msgs::fullMapToMsg(*octree_, octomap_msg)) {
-                RCLCPP_INFO(this->get_logger(), "Publishing color_octomap...");
                 pub_->publish(octomap_msg);
             }
         }

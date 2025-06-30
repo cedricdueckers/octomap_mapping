@@ -31,6 +31,28 @@ ros2 run octomap_server octomap_saver_node --ros-args -p octomap_path:=(path for
 ```
 Note: The extension of octomap path should be `.bt` or `.ot`
 
+#### Convert OctoMap to PLY
+
+```
+ros2 run octomap_server octomap_to_ply_node \
+  --ros-args \
+    -p input_octomap_path:="your_map.bt" \
+    -p team_name:="MyTeam" \
+    -p mission_number:="1"
+```
+Note: `input_octomap_path` can be a file with the extension `.bt` (binary) or `.ot` (full tree).
+
+#### Convert RGB OctoMap to PLY
+
+```
+ros2 run octomap_server rgb_octomap_to_ply_node \
+  --ros-args \
+    -p input_octomap_path:="your_rgb_map.ot" \
+    -p output_ply_path:="output_map.ply" \
+    -p team_name:="MyTeam" \
+    -p mission_number:="1"
+```
+
 
 
 

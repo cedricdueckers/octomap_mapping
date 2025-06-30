@@ -16,6 +16,9 @@ include_directories(${PCL_INCLUDE_DIRS})
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 find_package(OCTOMAP REQUIRED)
+find_package(octomap REQUIRED)
+find_package(octomap_msgs REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS date_time)
 
@@ -153,6 +156,21 @@ target_link_libraries(rgb_octomap_saver
 rclcpp_components_register_node(rgb_octomap_saver
   PLUGIN "octomap_server::RgbOctomapSaver"
   EXECUTABLE rgb_octomap_saver_node
+)
+
+# rgb_octomap_to_ply Node
+add_executable(rgb_octomap_to_ply_node
+  src/rgb_octomap_to_ply.cpp
+)
+ament_target_dependencies(rgb_octomap_to_ply_node
+  rclcpp
+  octomap
+  octomap_msgs
+  rclcpp_components
+)
+install(TARGETS
+  rgb_octomap_to_ply_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
